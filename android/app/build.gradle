@@ -2,6 +2,15 @@ apply plugin: "com.android.application"
 apply plugin: "org.jetbrains.kotlin.android"
 apply plugin: "com.facebook.react"
 
+project.ext.vectoricons = [
+    iconFontNames: [
+        "Feather.ttf",
+        "FontAwesome6_Brands.ttf",
+    ],
+]
+
+apply from: file("../../node_modules/react-native-vector-icons/fonts.gradle")
+
 /**
  * This is the configuration block to customize your React Native Android app.
  * By default you don't need to apply any configuration, just uncomment the lines you need.
@@ -60,6 +69,30 @@ react {
 def enableProguardInReleaseBuilds = false
 
 /**
+ * Release credentials are supplied only by the release operator through
+ * Gradle project properties (-P...) or environment variables. No production
+ * keystore or secret belongs in this repository.
+ */
+def releaseSigningValue = { name ->
+    if (project.hasProperty(name)) {
+        return project.property(name)?.toString()
+    }
+
+    return System.getenv(name)
+}
+
+def releaseStoreFile = releaseSigningValue("SYNAPAUSE_RELEASE_STORE_FILE")
+def releaseStorePassword = releaseSigningValue("SYNAPAUSE_RELEASE_STORE_PASSWORD")
+def releaseKeyAlias = releaseSigningValue("SYNAPAUSE_RELEASE_KEY_ALIAS")
+def releaseKeyPassword = releaseSigningValue("SYNAPAUSE_RELEASE_KEY_PASSWORD")
+def releaseSigningConfigured = [
+    releaseStoreFile,
+    releaseStorePassword,
+    releaseKeyAlias,
+    releaseKeyPassword,
+].every { value -> value != null && !value.trim().isEmpty() }
+
+/**
  * The preferred build flavor of JavaScriptCore (JSC)
  *
  * For example, to use the international variant, you can use:
@@ -92,24 +125,59 @@ android {
             keyAlias 'androiddebugkey'
             keyPassword 'android'
         }
+        release {
+            if (releaseSigningConfigured) {
+                storeFile file(releaseStoreFile)
+                storePassword releaseStorePassword
+                keyAlias releaseKeyAlias
+                keyPassword releaseKeyPassword
+            }
+        }
     }
     buildTypes {
         debug {
             signingConfig signingConfigs.debug
         }
         release {
-            // Caution! In production, you need to generate your own keystore file.
-            // see https://reactnative.dev/docs/signed-apk-android.
-            signingConfig signingConfigs.debug
+            if (releaseSigningConfigured) {
+                signingConfig signingConfigs.release
+            }
             minifyEnabled enableProguardInReleaseBuilds
             proguardFiles getDefaultProguardFile("proguard-android.txt"), "proguard-rules.pro"
         }
+    }
+
+    testOptions {
+        unitTests.includeAndroidResources = true
+        unitTests.returnDefaultValues = true
+    }
+}
+
+gradle.taskGraph.whenReady { graph ->
+    def releasePackagingRequested = graph.allTasks.any { task ->
+        task.path in [
+            ":app:assembleRelease",
+            ":app:bundleRelease",
+            ":app:packageRelease",
+        ]
+    }
+
+    if (releasePackagingRequested && !releaseSigningConfigured) {
+        throw new GradleException(
+            "Release signing is not configured. Provide " +
+            "SYNAPAUSE_RELEASE_STORE_FILE, SYNAPAUSE_RELEASE_STORE_PASSWORD, " +
+            "SYNAPAUSE_RELEASE_KEY_ALIAS, and SYNAPAUSE_RELEASE_KEY_PASSWORD " +
+            "as Gradle properties or environment variables."
+        )
     }
 }
 
 dependencies {
     // The version of react-native is set by the React Native Gradle Plugin
     implementation("com.facebook.react:react-android")
+
+    testImplementation("junit:junit:4.13.2")
+    testImplementation("org.json:json:20180813")
 
     if (hermesEnabled.toBoolean()) {
         implementation("com.facebook.react:hermes-android")

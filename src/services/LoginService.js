@@ -1,7 +1,8 @@
 //=======ELEMENT=======//
-import AsyncStorage from "@react-native-async-storage/async-storage";
 import GlobalService from "./GlobalService";
-import BackgroundService from "./BackgroundService";
+import {saveStoredUser} from "./StoredUserService";
+
+const AUTH_REQUESTS_IN_FLIGHT = new Set();
 
 
 //=======HELPER=======//
@@ -15,6 +16,8 @@ export default function LoginService({
     setLoginPopupVisible,
     setProfileVisible,
     updateNavbar,
+    setLoginDisabled,
+    setLoginText,
 
     // Register
     registerEmail,
@@ -30,6 +33,12 @@ export default function LoginService({
     setRegisterUsername,
     setRegisterPassword,
     setRegisterConfirmPassword,
+    setRegisterEmailDisabled,
+    setRegisterEmailText,
+    setRegisterOTPDisabled,
+    setRegisterOTPText,
+    setRegisterDisabled,
+    setRegisterText,
 
     // Forgot
     forgotStep,
@@ -43,6 +52,12 @@ export default function LoginService({
     setForgotOTP,
     setForgotNewPassword,
     setForgotConfirmPassword,
+    setForgotEmailDisabled,
+    setForgotEmailText,
+    setForgotOTPDisabled,
+    setForgotOTPText,
+    setResetPasswordDisabled,
+    setResetPasswordText,
 
     // Toast
     toastMessage,
@@ -68,6 +83,71 @@ export default function LoginService({
         toastColor,
         setToastColor,
     });
+
+    async function runAuthRequest({
+        key,
+        setDisabled,
+        setText,
+        loadingText,
+        idleText,
+        operation,
+    }){
+        if(AUTH_REQUESTS_IN_FLIGHT.has(key)){
+            return false;
+        }
+
+        AUTH_REQUESTS_IN_FLIGHT.add(key);
+        setLoading(setDisabled, setText, loadingText);
+
+        try{
+            return await operation();
+        }
+
+        finally{
+            AUTH_REQUESTS_IN_FLIGHT.delete(key);
+            clearLoading(setDisabled, setText, idleText);
+        }
+    }
+
+    async function completeAuthenticatedUser(result){
+        let user;
+
+        try{
+            user = await saveStoredUser({
+                username: result.username,
+                email: result.email,
+                id: result.id,
+            });
+        }
+
+        catch(error){
+            console.error(
+                "Account Persistence Error:",
+                error
+            );
+
+            showError(
+                "Data akun gagal disimpan."
+            );
+
+            return null;
+        }
+
+        if(updateNavbar){
+            try{
+                await updateNavbar();
+            }
+
+            catch(error){
+                console.error(
+                    "Native Monitoring Integration Error:",
+                    error
+                );
+            }
+        }
+
+        return user;
+    }
 
 
 
@@ -122,7 +202,7 @@ export default function LoginService({
         }
     }
 
-    async function loginUser(loginButtonRef){
+    async function loginUser(){
         if(
             loginIdentifier.trim()===""
             ||
@@ -134,45 +214,54 @@ export default function LoginService({
             return;
         }
 
-        setLoading(
-            loginButtonRef,
-            "Logging in"
-        );
+        return runAuthRequest({
+            key: "login",
+            setDisabled: setLoginDisabled,
+            setText: setLoginText,
+            loadingText: "Logging in",
+            idleText: "Login",
+            operation: async ()=>{
+                let result;
 
-        try{
-            const response = await fetch(
-                API_URL+
-                "?action=login"+
-                "&identifier="+
-                encodeURIComponent(
-                    loginIdentifier.trim()
-                )+
-                "&password="+
-                encodeURIComponent(
-                    loginPassword
-                )
-            );
+                try{
+                    const response = await fetch(
+                        API_URL+
+                        "?action=login"+
+                        "&identifier="+
+                        encodeURIComponent(
+                            loginIdentifier.trim()
+                        )+
+                        "&password="+
+                        encodeURIComponent(
+                            loginPassword
+                        )
+                    );
 
-            const result = await response.json();
+                    result = await response.json();
+                }
 
-            if(result.success){
-                console.log("LOGIN RESULT");
-                console.log(result);
+                catch(error){
+                    console.error(
+                        "Login Backend Error:",
+                        error
+                    );
 
-                await AsyncStorage.setItem(
-                    "synapauseUser",
+                    showError(
+                        "Tidak dapat terhubung ke server."
+                    );
 
-                    JSON.stringify({
-                        username: result.username,
-                        email: result.email,
-                        id: result.id,
-                    })
-                );
+                    return false;
+                }
 
-                await BackgroundService.startMonitoring();
+                if(!result.success){
+                    showError(result.message);
+                    return false;
+                }
 
-                if (updateNavbar) {
-                    await updateNavbar();
+                const user = await completeAuthenticatedUser(result);
+
+                if(!user){
+                    return false;
                 }
 
                 showSuccess(
@@ -183,26 +272,10 @@ export default function LoginService({
                 setLoginPopupVisible(true);
                 setRegisterPopupVisible(false);
                 setForgotPopupVisible(false);
-            }
 
-            else{
-                showError(
-                    result.message
-                );
-            }
-        }
-
-        catch(error){
-            console.error(error);
-            showError(
-                "Tidak dapat terhubung ke server."
-            );
-        }
-
-        clearLoading(
-            loginButtonRef,
-            "Login"
-        );
+                return true;
+            },
+        });
     }
 
     //====LISTENER====//
@@ -247,7 +320,7 @@ export default function LoginService({
         setPasswordWarning("");
     }
 
-    async function continueEmail(continueButtonRef){
+    async function continueEmail(){
         const email = registerEmail.trim();
         if(email===""){
             showError(
@@ -257,47 +330,42 @@ export default function LoginService({
             return;
         }
 
-        setLoading(
-            continueButtonRef,
-            "Sending"
-        );
+        return runAuthRequest({
+            key: "register-email",
+            setDisabled: setRegisterEmailDisabled,
+            setText: setRegisterEmailText,
+            loadingText: "Sending",
+            idleText: "Continue",
+            operation: async ()=>{
+                try{
+                    const response = await fetch(
+                        API_URL+
+                        "?action=sendVerificationOTP"+
+                        "&email="+
+                        encodeURIComponent(email)
+                    );
 
-        try{
-            const response = await fetch(
-                API_URL+
-                "?action=sendVerificationOTP"+
-                "&email="+
-                encodeURIComponent(email)
-            );
+                    const result = await response.json();
 
-            const result = await response.json();
+                    if(result.success){
+                        switchStep(setRegisterStep, 2);
+                        return true;
+                    }
 
-            if(result.success){
-                switchStep(
-                    setRegisterStep,
-                    2
-                );
-            }
+                    showError(result.message);
+                    return false;
+                }
 
-            else{
-                showError(
-                    result.message
-                );
-            }
-        }
-
-        catch(error){
-            console.error(error);
-
-            showError(
-                "Tidak dapat terhubung ke server."
-            );
-        }
-
-        clearLoading(
-            continueButtonRef,
-            "Continue"
-        );
+                catch(error){
+                    console.error(
+                        "Register OTP Send Error:",
+                        error
+                    );
+                    showError("Tidak dapat terhubung ke server.");
+                    return false;
+                }
+            },
+        });
     }
 
     function registerOtpInput(text){
@@ -308,7 +376,7 @@ export default function LoginService({
         return true;
     }
 
-    async function verifyOTP(verifyButtonRef){
+    async function verifyOTP(){
         const email = registerEmail.trim();
         const otp = registerOTP.trim();
 
@@ -320,49 +388,44 @@ export default function LoginService({
             return;
         }
 
-        setLoading(
-            verifyButtonRef,
-            "Verifying"
-        );
+        return runAuthRequest({
+            key: "register-otp",
+            setDisabled: setRegisterOTPDisabled,
+            setText: setRegisterOTPText,
+            loadingText: "Verifying",
+            idleText: "Verify OTP",
+            operation: async ()=>{
+                try{
+                    const response = await fetch(
+                        API_URL+
+                        "?action=verifyOTP"+
+                        "&email="+
+                        encodeURIComponent(email)+
+                        "&otp="+
+                        encodeURIComponent(otp)
+                    );
 
-        try{
-            const response = await fetch(
-                API_URL+
-                "?action=verifyOTP"+
-                "&email="+
-                encodeURIComponent(email)+
-                "&otp="+
-                encodeURIComponent(otp)
-            );
+                    const result = await response.json();
 
-            const result = await response.json();
+                    if(result.success){
+                        switchStep(setRegisterStep, 3);
+                        return true;
+                    }
 
-            if(result.success){
-                switchStep(
-                    setRegisterStep,
-                    3
-                );
-            }
+                    showError(result.message);
+                    return false;
+                }
 
-            else{
-                showError(
-                    result.message
-                );
-            }
-        }
-
-        catch(error){
-            console.error(error);
-
-            showError(
-                "Tidak dapat terhubung ke server."
-            );
-        }
-
-        clearLoading(
-            verifyButtonRef,
-            "Verify OTP"
-        );
+                catch(error){
+                    console.error(
+                        "Register OTP Verify Error:",
+                        error
+                    );
+                    showError("Tidak dapat terhubung ke server.");
+                    return false;
+                }
+            },
+        });
     }
 
     function continueUsername(){
@@ -380,7 +443,7 @@ export default function LoginService({
         );
     }
 
-    async function registerUser(registerButtonRef){
+    async function registerUser(){
         if(
             registerPassword.trim()===""
             ||
@@ -417,40 +480,48 @@ export default function LoginService({
             return;
         }
 
-        setLoading(
-            registerButtonRef,
-            "Registering"
-        );
+        return runAuthRequest({
+            key: "register",
+            setDisabled: setRegisterDisabled,
+            setText: setRegisterText,
+            loadingText: "Registering",
+            idleText: "Register",
+            operation: async ()=>{
+                let result;
 
-        try{
-            const response=await fetch(
-                API_URL+
-                "?action=register"+
-                "&username="+
-                encodeURIComponent(registerUsername.trim())+
-                "&email="+
-                encodeURIComponent(registerEmail.trim())+
-                "&password="+
-                encodeURIComponent(registerPassword)
-            );
+                try{
+                    const response=await fetch(
+                        API_URL+
+                        "?action=register"+
+                        "&username="+
+                        encodeURIComponent(registerUsername.trim())+
+                        "&email="+
+                        encodeURIComponent(registerEmail.trim())+
+                        "&password="+
+                        encodeURIComponent(registerPassword)
+                    );
 
-            const result=await response.json();
+                    result=await response.json();
+                }
 
-            if(result.success){
-                await AsyncStorage.setItem(
-                    "synapauseUser",
+                catch(error){
+                    console.error(
+                        "Register Backend Error:",
+                        error
+                    );
+                    showError("Tidak dapat terhubung ke server.");
+                    return false;
+                }
 
-                    JSON.stringify({
-                        username:result.username,
-                        email:result.email,
-                        id:result.id
-                    })
-                );
+                if(!result.success){
+                    showError(result.message);
+                    return false;
+                }
 
-                await BackgroundService.startMonitoring();
+                const user = await completeAuthenticatedUser(result);
 
-                if (updateNavbar) {
-                    await updateNavbar();
+                if(!user){
+                    return false;
                 }
 
                 setRegisterStep(1);
@@ -471,27 +542,10 @@ export default function LoginService({
                 showSuccess(
                     "Register berhasil."
                 );
-            }
 
-            else{
-                showError(
-                    result.message
-                );
-            }
-        }
-
-        catch(error){
-            console.error(error);
-
-            showError(
-                "Tidak dapat terhubung ke server."
-            );
-        }
-
-        clearLoading(
-            registerButtonRef,
-            "Register"
-        );
+                return true;
+            },
+        });
     }
 
     //Forgot//
@@ -505,7 +559,7 @@ export default function LoginService({
         setForgotConfirmPassword("");
     }
 
-    async function forgotContinue(forgotContinueButtonRef){
+    async function forgotContinue(){
         const email = forgotEmail.trim();
 
         if(email===""){
@@ -516,47 +570,42 @@ export default function LoginService({
             return;
         }
 
-        setLoading(
-            forgotContinueButtonRef,
-            "Sending"
-        );
+        return runAuthRequest({
+            key: "forgot-email",
+            setDisabled: setForgotEmailDisabled,
+            setText: setForgotEmailText,
+            loadingText: "Sending",
+            idleText: "Continue",
+            operation: async ()=>{
+                try{
+                    const response = await fetch(
+                        API_URL+
+                        "?action=sendResetOTP"+
+                        "&email="+
+                        encodeURIComponent(email)
+                    );
 
-        try{
-            const response = await fetch(
-                API_URL+
-                "?action=sendResetOTP"+
-                "&email="+
-                encodeURIComponent(email)
-            );
+                    const result = await response.json();
 
-            const result = await response.json();
+                    if(result.success){
+                        switchStep(setForgotStep, 2);
+                        return true;
+                    }
 
-            if(result.success){
-                switchStep(
-                    setForgotStep,
-                    2
-                );
-            }
+                    showError(result.message);
+                    return false;
+                }
 
-            else{
-                showError(
-                    result.message
-                );
-            }
-        }
-
-        catch(error){
-            console.error(error);
-
-            showError(
-                "Tidak dapat terhubung ke server."
-            );
-        }
-
-        clearLoading(
-            forgotContinueButtonRef,
-            "Continue"
-        );
+                catch(error){
+                    console.error(
+                        "Reset OTP Send Error:",
+                        error
+                    );
+                    showError("Tidak dapat terhubung ke server.");
+                    return false;
+                }
+            },
+        });
     }
 
     function backToLogin(){
@@ -574,7 +623,7 @@ export default function LoginService({
         return verifyResetOTP();
     }
 
-    async function verifyResetOTP(verifyButtonRef){
+    async function verifyResetOTP(){
         const otp = forgotOTP.trim();
 
         if(otp===""){
@@ -585,54 +634,49 @@ export default function LoginService({
             return;
         }
 
-        setLoading(
-            verifyButtonRef,
-            "Verifying"
-        );
+        return runAuthRequest({
+            key: "forgot-otp",
+            setDisabled: setForgotOTPDisabled,
+            setText: setForgotOTPText,
+            loadingText: "Verifying",
+            idleText: "Verify OTP",
+            operation: async ()=>{
+                try{
+                    const response = await fetch(
+                        API_URL+
+                        "?action=verifyResetOTP"+
+                        "&email="+
+                        encodeURIComponent(
+                            forgotEmail.trim()
+                        )+
+                        "&otp="+
+                        encodeURIComponent(otp)
+                    );
 
-        try{
-            const response = await fetch(
-                API_URL+
-                "?action=verifyResetOTP"+
-                "&email="+
-                encodeURIComponent(
-                    forgotEmail.trim()
-                )+
-                "&otp="+
-                encodeURIComponent(otp)
-            );
+                    const result = await response.json();
 
-            const result = await response.json();
+                    if(result.success){
+                        switchStep(setForgotStep, 3);
+                        return true;
+                    }
 
-            if(result.success){
-                switchStep(
-                    setForgotStep,
-                    3
-                );
-            }
+                    showError(result.message);
+                    return false;
+                }
 
-            else{
-                showError(
-                    result.message
-                );
-            }
-        }
-
-        catch(error){
-            console.error(error);
-
-            showError(
-                "Tidak dapat terhubung ke server."
-            );
-        }
-
-        clearLoading(
-            verifyButtonRef,
-            "Verify OTP"
-        );
+                catch(error){
+                    console.error(
+                        "Reset OTP Verify Error:",
+                        error
+                    );
+                    showError("Tidak dapat terhubung ke server.");
+                    return false;
+                }
+            },
+        });
     }
 
-    async function resetPassword(resetPasswordButtonRef){
+    async function resetPassword(){
         if(
             forgotNewPassword.trim()===""
             ||
@@ -655,63 +699,59 @@ export default function LoginService({
             return;
         }
 
-        setLoading(
-            resetPasswordButtonRef,
-            "Resetting"
-        );
+        return runAuthRequest({
+            key: "reset-password",
+            setDisabled: setResetPasswordDisabled,
+            setText: setResetPasswordText,
+            loadingText: "Resetting",
+            idleText: "Reset Password",
+            operation: async ()=>{
+                try{
+                    const response = await fetch(
+                        API_URL+
+                        "?action=resetPassword"+
+                        "&email="+
+                        encodeURIComponent(
+                            forgotEmail.trim()
+                        )+
+                        "&newPassword="+
+                        encodeURIComponent(
+                            forgotNewPassword
+                        )
+                    );
 
-        try{
-            const response = await fetch(
-                API_URL+
-                "?action=resetPassword"+
-                "&email="+
-                encodeURIComponent(
-                    forgotEmail.trim()
-                )+
-                "&newPassword="+
-                encodeURIComponent(
-                    forgotNewPassword
-                )
-            );
+                    const result = await response.json();
 
-            const result = await response.json();
+                    if(!result.success){
+                        showError(result.message);
+                        return false;
+                    }
 
-            if(result.success){
-                showSuccess(
-                    result.message
-                );
+                    showSuccess(result.message);
+                    setForgotStep(1);
+                    setForgotEmail("");
+                    setForgotOTP("");
+                    setForgotNewPassword("");
+                    setForgotConfirmPassword("");
+                    setLoginIdentifier("");
+                    setLoginPassword("");
+                    setForgotPopupVisible(false);
+                    setLoginPopupVisible(true);
+                    setLoginVisible(true);
 
-                setForgotStep(1);
-                setForgotEmail("");
-                setForgotOTP("");
-                setForgotNewPassword("");
-                setForgotConfirmPassword("");
-                setLoginIdentifier("");
-                setLoginPassword("");
-                setForgotPopupVisible(false);
-                setLoginPopupVisible(true);
-                setLoginVisible(true);
-            }
+                    return true;
+                }
 
-            else{
-                showError(
-                    result.message
-                );
-            }
-        }
-
-        catch(error){
-            console.error(error);
-
-            showError(
-                "Tidak dapat terhubung ke server."
-            );
-        }
-
-        clearLoading(
-            resetPasswordButtonRef,
-            "Reset Password"
-        );
+                catch(error){
+                    console.error(
+                        "Reset Password Backend Error:",
+                        error
+                    );
+                    showError("Tidak dapat terhubung ke server.");
+                    return false;
+                }
+            },
+        });
     }
 
     return{

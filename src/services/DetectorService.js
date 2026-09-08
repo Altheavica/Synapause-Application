@@ -1,4 +1,8 @@
-import {NativeEventEmitter, NativeModules,} from "react-native";
+import {
+    NativeModules,
+    PermissionsAndroid,
+    Platform,
+} from "react-native";
 import {hasUsagePermission, openUsagePermissionSettings,} from "@sahil_sensei/react-native-app-usage";
 
 const {ForegroundAppModule,} = NativeModules;
@@ -6,13 +10,10 @@ const {ForegroundAppModule,} = NativeModules;
 
 
 //=======GLOBAL=======//
-let foregroundSubscription = null;
-let timerSubscription = null;
-let quizSubscription = null;
-
-let onForegroundAppChanged = null;
-let onTimerChanged = null;
-let onQuizRequired = null;
+let monitoringRequested = false;
+let monitoringStarted = false;
+let startPromise = null;
+let waitingForPermission = null;
 
 
 
@@ -117,39 +118,46 @@ async function requestOverlayPermission(){
     }
 }
 
+async function hasNotificationPermission(){
+    if(
+        Platform.OS !== "android" ||
+        Number(Platform.Version) < 33
+    ){
+        return true;
+    }
 
-
-//=======CALLBACK=======//
-function setForegroundAppCallback(
-    callback
-){
-    onForegroundAppChanged = callback;
-}
-
-function setTimerChangedCallback(
-    callback
-){
-    onTimerChanged = callback;
-}
-
-function setQuizRequiredCallback(
-    callback
-){
-    onQuizRequired = callback;
-}
-
-
-
-//=======HELPER=======//
-async function consumePendingShowQuiz(){
     try{
-        return await ForegroundAppModule
-            .consumePendingShowQuiz();
+        return await PermissionsAndroid.check(
+            PermissionsAndroid.PERMISSIONS.POST_NOTIFICATIONS
+        );
     }
 
     catch(error){
         console.error(
-            "Consume Pending Quiz Error:",
+            "Notification Permission Error:",
+            error
+        );
+
+        return false;
+    }
+}
+
+async function requestNotificationPermission(){
+    if(await hasNotificationPermission()){
+        return true;
+    }
+
+    try{
+        const result = await PermissionsAndroid.request(
+            PermissionsAndroid.PERMISSIONS.POST_NOTIFICATIONS
+        );
+
+        return result === PermissionsAndroid.RESULTS.GRANTED;
+    }
+
+    catch(error){
+        console.error(
+            "Notification Permission Request Error:",
             error
         );
 
@@ -159,72 +167,16 @@ async function consumePendingShowQuiz(){
 
 
 
-//=======EVENT=======//
-function attachListeners(){
-    const eventEmitter = new NativeEventEmitter(ForegroundAppModule);
-
-    if(!foregroundSubscription){
-        foregroundSubscription = eventEmitter.addListener(
-            "ForegroundAppChanged",
-            appId => {
-                console.log(
-                    "FOREGROUND APP:",
-                    appId
-                );
-
-                if(
-                    typeof onForegroundAppChanged === "function"
-                ){
-                    onForegroundAppChanged(
-                        appId
-                    );
-                }
-            }
-        );
-    }
-
-    if(!timerSubscription){
-        timerSubscription = eventEmitter.addListener(
-            "TimerChanged",
-            seconds => {
-                console.log(
-                    "Timer:",
-                    seconds
-                );
-
-                if(
-                    typeof onTimerChanged === "function"
-                ){
-                    onTimerChanged(
-                        seconds
-                    );
-                }
-            }
-        );
-    }
-
-    if(!quizSubscription){
-        quizSubscription = eventEmitter.addListener(
-            "QuizRequired",
-            () => {
-                console.log(
-                    "QUIZ REQUIRED"
-                );
-
-                if(
-                    typeof onQuizRequired === "function"
-                ){
-                    onQuizRequired();
-                }
-            }
-        );
-    }
-}
-
-
-
 //=======MONITOR=======//
-async function start(){
+async function performStart(){
+    if(!ForegroundAppModule){
+        console.error(
+            "ForegroundAppModule not available."
+        );
+
+        return false;
+    }
+
     const granted = await hasPermission();
 
     if(!granted){
@@ -232,27 +184,57 @@ async function start(){
             "Foreground Detector blocked. Usage Access required."
         );
 
-        await requestPermission();
+        if(waitingForPermission !== "usage"){
+            waitingForPermission = "usage";
+            await requestPermission();
+        }
 
-        return;
+        return false;
     }
 
-    if(!ForegroundAppModule){
-        console.error(
-            "ForegroundAppModule not available."
+    if(waitingForPermission === "usage"){
+        waitingForPermission = null;
+    }
+
+    const overlayGranted = await hasOverlayPermission();
+
+    if(!overlayGranted){
+        console.log(
+            "Foreground Detector blocked. Overlay permission required."
         );
 
-        return;
+        if(waitingForPermission !== "overlay"){
+            waitingForPermission = "overlay";
+            await requestOverlayPermission();
+        }
+
+        return false;
     }
 
-    attachListeners();
+    if(waitingForPermission === "overlay"){
+        waitingForPermission = null;
+    }
+
+    const notificationGranted =
+        await requestNotificationPermission();
+
+    if(!notificationGranted){
+        console.warn(
+            "Notification permission denied. Foreground monitoring will continue with restricted notification visibility."
+        );
+    }
 
     try{
         await ForegroundAppModule.startMonitoring();
 
+        monitoringStarted = true;
+        monitoringRequested = false;
+
         console.log(
             "Foreground Detector Started"
         );
+
+        return true;
     }
 
     catch(error){
@@ -260,60 +242,55 @@ async function start(){
             "Foreground Detector Start Error:",
             error
         );
+
+        return false;
     }
 }
 
-async function stop(){
-    try{
-        if(ForegroundAppModule){
-            await ForegroundAppModule.stopMonitoring();
-        }
+async function start(){
+    monitoringRequested = true;
+
+    if(monitoringStarted){
+        monitoringRequested = false;
+        return true;
     }
 
-    catch(error){
-        console.error(
-            "Foreground Detector Stop Error:",
-            error
-        );
+    if(startPromise){
+        return startPromise;
     }
 
-    if(foregroundSubscription){
-        foregroundSubscription.remove();
-        foregroundSubscription = null;
-    }
+    startPromise = performStart()
+        .catch(error=>{
+            console.error(
+                "Foreground Detector Readiness Error:",
+                error
+            );
 
-    if(timerSubscription){
-        timerSubscription.remove();
-        timerSubscription = null;
-    }
+            return false;
+        })
+        .finally(()=>{
+            startPromise = null;
+        });
 
-    if(quizSubscription){
-        quizSubscription.remove();
-        quizSubscription = null;
-    }
-
-    console.log(
-        "Foreground Detector Stopped"
-    );
+    return startPromise;
 }
 
-
-
-//=======TIMER=======//
-async function restartTimer(){
-    try{
-        await ForegroundAppModule.restartTimer();
+async function resumePendingStart(){
+    if(
+        !monitoringRequested ||
+        monitoringStarted
+    ){
+        return monitoringStarted;
     }
 
-    catch(error){
-        console.error(
-            "Native Timer Restart Error:",
-            error
-        );
-    }
+    return start();
 }
 
-
+function cancelPendingStart(){
+    monitoringRequested = false;
+    monitoringStarted = false;
+    waitingForPermission = null;
+}
 
 //=======EXPORT=======//
 export default{
@@ -321,11 +298,9 @@ export default{
     requestPermission,
     hasOverlayPermission,
     requestOverlayPermission,
+    hasNotificationPermission,
+    requestNotificationPermission,
     start,
-    stop,
-    restartTimer,
-    setForegroundAppCallback,
-    setTimerChangedCallback,
-    setQuizRequiredCallback,
-    consumePendingShowQuiz,
+    resumePendingStart,
+    cancelPendingStart,
 };

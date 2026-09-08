@@ -1,5 +1,11 @@
 //=======ELEMENT=======//
-import AsyncStorage from "@react-native-async-storage/async-storage";
+import {NativeModules,} from "react-native";
+import {clearStoredUser} from "./StoredUserService";
+import DetectorService from "./DetectorService";
+
+
+
+const {ForegroundAppModule,} = NativeModules;
 
 
 
@@ -42,9 +48,45 @@ export default function ProfileService({
     }
 
     async function logout() {
-        await AsyncStorage.removeItem(
-            "synapauseUser"
-        );
+        let accountCleared = false;
+
+        try{
+            await clearStoredUser();
+            accountCleared = true;
+        }
+
+        catch(error){
+            console.error(
+                "Stored User Clear Error:",
+                error
+            );
+        }
+
+        if(accountCleared){
+            DetectorService.cancelPendingStart();
+        }
+
+        try{
+            if(ForegroundAppModule){
+                await ForegroundAppModule
+                    .clearLoggedInUser();
+
+                console.log(
+                    "NATIVE USER CLEARED"
+                );
+            }
+        }
+
+        catch(error){
+            console.error(
+                "Native User Clear Error:",
+                error
+            );
+        }
+
+        if(!accountCleared){
+            return false;
+        }
 
         setProfileVisible(false);
 
@@ -54,6 +96,8 @@ export default function ProfileService({
         if(updateNavbar){
             await updateNavbar();
         }
+
+        return true;
     }
 
     return{

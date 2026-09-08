@@ -1,169 +1,25 @@
 package com.synapause
 
-import android.content.BroadcastReceiver
-import android.content.Context
 import android.content.Intent
-import android.content.IntentFilter
 import android.net.Uri
 import android.os.Build
 import android.provider.Settings
-import androidx.core.content.ContextCompat
 import com.facebook.react.bridge.Promise
 import com.facebook.react.bridge.ReactApplicationContext
 import com.facebook.react.bridge.ReactContextBaseJavaModule
 import com.facebook.react.bridge.ReactMethod
-import com.facebook.react.modules.core.DeviceEventManagerModule
+import com.facebook.react.bridge.ReadableMap
+import com.facebook.react.bridge.ReadableType
 
 class ForegroundAppModule(
     reactContext: ReactApplicationContext
 ) : ReactContextBaseJavaModule(
     reactContext
 ) {
-    companion object {
-        var pendingShowQuiz =
-            false
-    }
-
-
-
-    //=======RECEIVER=======//
-    private val foregroundReceiver = object : BroadcastReceiver(){
-        override fun onReceive(
-            context: Context?,
-            intent: Intent?
-        ){
-            val appId = intent?.getStringExtra(
-                ForegroundMonitorService.EXTRA_APP_ID
-            )
-
-            if(appId != null){
-                emitEvent(
-                    "ForegroundAppChanged",
-                    appId
-                )
-            }
-        }
-    }
-
-    private val timerReceiver = object : BroadcastReceiver(){
-        override fun onReceive(
-            context: Context?,
-            intent: Intent?
-        ){
-            val seconds = intent?.getIntExtra(
-                ForegroundMonitorService.EXTRA_SECONDS,
-                0
-            ) ?: 0
-
-            emitEvent(
-                "TimerChanged",
-                seconds
-            )
-        }
-    }
-
-    private val quizReceiver = object : BroadcastReceiver(){
-        override fun onReceive(
-            context: Context?,
-            intent: Intent?
-        ){
-            emitEvent(
-                "QuizRequired",
-                true
-            )
-        }
-    }
-
-
-
     //=======MODULE=======//
     override fun getName(): String {
         return "ForegroundAppModule"
     }
-
-    override fun initialize(){
-        super.initialize()
-
-        ContextCompat.registerReceiver(
-            reactApplicationContext,
-            foregroundReceiver,
-            IntentFilter(
-                ForegroundMonitorService.ACTION_FOREGROUND_APP_CHANGED
-            ),
-            ContextCompat.RECEIVER_NOT_EXPORTED
-        )
-
-        ContextCompat.registerReceiver(
-            reactApplicationContext,
-            timerReceiver,
-            IntentFilter(
-                ForegroundMonitorService.ACTION_TIMER_CHANGED
-            ),
-            ContextCompat.RECEIVER_NOT_EXPORTED
-        )
-
-        ContextCompat.registerReceiver(
-            reactApplicationContext,
-            quizReceiver,
-            IntentFilter(
-                ForegroundMonitorService.ACTION_QUIZ_REQUIRED
-            ),
-            ContextCompat.RECEIVER_NOT_EXPORTED
-        )
-    }
-
-    override fun invalidate(){
-        try{
-            reactApplicationContext.unregisterReceiver(
-                foregroundReceiver
-            )
-        }
-
-        catch(error: Exception){
-        }
-
-        try{
-            reactApplicationContext.unregisterReceiver(
-                timerReceiver
-            )
-        }
-
-        catch(error: Exception){
-        }
-
-        try{
-            reactApplicationContext.unregisterReceiver(
-                quizReceiver
-            )
-        }
-
-        catch(error: Exception){
-        }
-
-        super.invalidate()
-    }
-
-
-
-    //=======EVENT=======//
-    private fun emitEvent(
-        eventName: String,
-        value: Any
-    ){
-        if(
-            reactApplicationContext.hasActiveReactInstance()
-        ){
-            reactApplicationContext.getJSModule(
-                DeviceEventManagerModule.RCTDeviceEventEmitter::class.java
-            )
-            .emit(
-                eventName,
-                value
-            )
-        }
-    }
-
-
 
     //=======OVERLAY PERMISSION=======//
     @ReactMethod
@@ -228,7 +84,6 @@ class ForegroundAppModule(
                 return
             }
 
-
             val intent = Intent(
                 Settings.ACTION_MANAGE_OVERLAY_PERMISSION,
                 Uri.parse(
@@ -268,6 +123,19 @@ class ForegroundAppModule(
         promise: Promise
     ){
         try{
+            if(
+                !ForegroundMonitorService.hasValidPersistedUser(
+                    reactApplicationContext
+                )
+            ){
+                promise.reject(
+                    "USER_REQUIRED",
+                    "A valid synchronized user is required before monitoring can start."
+                )
+
+                return
+            }
+
             val intent = Intent(
                 reactApplicationContext,
                 ForegroundMonitorService::class.java
@@ -302,99 +170,176 @@ class ForegroundAppModule(
     }
 
     @ReactMethod
-    fun stopMonitoring(
+    fun updateLoggedInUser(
+        user: ReadableMap,
         promise: Promise
-    ){
-        try{
-            val intent = Intent(
-                reactApplicationContext,
-                ForegroundMonitorService::class.java
-            )
-
-            reactApplicationContext.stopService(
-                intent
-            )
-
-            promise.resolve(
-                true
-            )
-        }
-
-        catch(error: Exception){
-            promise.reject(
-                "STOP_MONITOR_ERROR",
-                error
-            )
-        }
-    }
-
-    @ReactMethod
-    fun restartTimer(
-        promise: Promise
-    ){
-        try{
-            val intent = Intent(
-                reactApplicationContext,
-                ForegroundMonitorService::class.java
-            )
-
-            intent.action = ForegroundMonitorService.ACTION_RESTART_TIMER
+    ) {
+        try {
+            val id = getValidUserField(user, "id")
+            val username = getValidUserField(user, "username")
+            val email = getValidUserField(user, "email")
 
             if(
-                Build.VERSION.SDK_INT >=
-                Build.VERSION_CODES.O
+                id == null ||
+                username == null ||
+                email == null
             ){
-                reactApplicationContext.startForegroundService(
-                    intent
+                ForegroundMonitorService.clearPersistedUser(
+                    reactApplicationContext
                 )
+
+                sendUserMirrorBroadcast(
+                    ForegroundMonitorService.ACTION_USER_MIRROR_CLEARED
+                )
+
+                promise.reject(
+                    "INVALID_USER",
+                    "User must contain valid id, username, and email strings."
+                )
+
+                return
             }
 
-            else{
-                reactApplicationContext.startService(
-                    intent
+            if(
+                !ForegroundMonitorService.updatePersistedUser(
+                    reactApplicationContext,
+                    id,
+                    username,
+                    email
                 )
+            ){
+                promise.reject(
+                    "UPDATE_USER_ERROR",
+                    "Native user mirror could not be persisted."
+                )
+
+                return
             }
 
-            promise.resolve(
-                true
+            sendUserMirrorBroadcast(
+                ForegroundMonitorService.ACTION_USER_MIRROR_UPDATED
             )
+
+            promise.resolve(true)
         }
 
         catch(error: Exception){
             promise.reject(
-                "RESTART_TIMER_ERROR",
+                "UPDATE_USER_ERROR",
                 error
             )
         }
     }
 
+    private fun getValidUserField(
+        user: ReadableMap,
+        key: String
+    ): String? {
+        if(
+            !user.hasKey(key) ||
+            user.isNull(key) ||
+            user.getType(key) != ReadableType.String
+        ){
+            return null
+        }
 
+        return user.getString(key)
+            ?.takeIf { value ->
+                value.isNotBlank()
+            }
+    }
 
-    // Required by NativeEventEmitter
     @ReactMethod
-    fun consumePendingShowQuiz(
+    fun updateMonitoredSites(
+        sites: ReadableMap,
         promise: Promise
-    ){
-        val pending =
-            pendingShowQuiz
+    ) {
+        try {
+            val enabledByKey = linkedMapOf<String, Boolean>()
 
-        pendingShowQuiz =
-            false
+            MonitoredSiteConfig.siteKeys.forEach { key ->
+                if (
+                    !sites.hasKey(key) ||
+                    sites.isNull(key) ||
+                    sites.getType(key) != ReadableType.Boolean
+                ) {
+                    promise.reject(
+                        "INVALID_MONITORED_SITES",
+                        "Monitored sites must contain six boolean platform values."
+                    )
+                    return
+                }
 
-        promise.resolve(
-            pending
-        )
+                enabledByKey[key] = sites.getBoolean(key)
+            }
+
+            val snapshot =
+                MonitoredSiteConfig.createSnapshot(enabledByKey)
+
+            if (snapshot == null) {
+                promise.reject(
+                    "INVALID_MONITORED_SITES",
+                    "At least one monitored platform must remain enabled."
+                )
+                return
+            }
+
+            if (
+                !MonitoredSiteConfig.persist(
+                    reactApplicationContext,
+                    snapshot
+                )
+            ) {
+                promise.reject(
+                    "UPDATE_MONITORED_SITES_ERROR",
+                    "Native monitored-site mirror could not be persisted."
+                )
+                return
+            }
+
+            sendUserMirrorBroadcast(
+                ForegroundMonitorService.ACTION_MONITORED_SITES_UPDATED
+            )
+
+            promise.resolve(true)
+        } catch (error: Exception) {
+            promise.reject(
+                "UPDATE_MONITORED_SITES_ERROR",
+                error
+            )
+        }
     }
 
     @ReactMethod
-    fun addListener(
-        eventName: String
-    ){
+    fun clearLoggedInUser(
+        promise: Promise
+    ) {
+        try {
+            ForegroundMonitorService.clearPersistedUser(
+                reactApplicationContext
+            )
+
+            sendUserMirrorBroadcast(
+                ForegroundMonitorService.ACTION_USER_MIRROR_CLEARED
+            )
+
+            promise.resolve(true)
+        }
+
+        catch(error: Exception){
+            promise.reject(
+                "CLEAR_USER_ERROR",
+                error
+            )
+        }
     }
 
-    @ReactMethod
-    fun removeListeners(
-        count: Int
-    ){
+    private fun sendUserMirrorBroadcast(
+        action: String
+    ) {
+        val broadcast = Intent(action)
+        broadcast.setPackage(reactApplicationContext.packageName)
+        reactApplicationContext.sendBroadcast(broadcast)
     }
+
 }

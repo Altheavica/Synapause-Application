@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, {useEffect, useMemo, useState} from "react";
 import LinearGradient from "react-native-linear-gradient";
 
 import {
@@ -7,26 +7,29 @@ import {
     Text,
     TouchableOpacity,
     TextInput,
-    Switch,
     ScrollView,
     KeyboardAvoidingView,
-    Image,
     Platform,
     ActivityIndicator,
 } from 'react-native';
 
-import styles from "../styles/GlobalStyle";
-import settingsStyles from "../styles/SettingsStyle";
+import {createGlobalStyles} from "../styles/GlobalStyle";
 import GlobalService from "../services/GlobalService";
 import LoginService from "../services/LoginService";
 import NavigationService from "../services/NavigationService";
 import ProfileService from "../services/ProfileService";
 import ChangeService from "../services/ChangeService";
+import {useTheme} from "../theme/ThemeContext";
 
-export default function HomeScreen() {
+export default function HomeScreen({navigation, route}) {
+    const {colors} = useTheme();
+    const styles = useMemo(
+        ()=>createGlobalStyles(colors),
+        [colors]
+    );
+
     const [dropdownVisible, setDropdownVisible] = useState(false);
     const [profileVisible, setProfileVisible] = useState(false);
-    const [settingsVisible, setSettingsVisible] = useState(false);
     const [loginVisible, setLoginVisible] = useState(false);
     const [loginPopupVisible, setLoginPopupVisible] = useState(true);
     const [registerPopupVisible, setRegisterPopupVisible] = useState(false);
@@ -41,6 +44,8 @@ export default function HomeScreen() {
     const [loginPasswordIcon, setLoginPasswordIcon] = useState("👁");
     const [loginEmailFocused, setLoginEmailFocused] = useState(false);
     const [loginPasswordFocused, setLoginPasswordFocused] = useState(false);
+    const [loginDisabled, setLoginDisabled] = useState(false);
+    const [loginText, setLoginText] = useState("Login");
 
     const [registerStep, setRegisterStep] = useState(1);
     const [registerEmail, setRegisterEmail] = useState('');
@@ -58,6 +63,12 @@ export default function HomeScreen() {
     const [registerOTPFocused, setRegisterOTPFocused] = useState(false);
     const [registerPasswordFocused, setRegisterPasswordFocused] = useState(false);
     const [registerConfirmFocused, setRegisterConfirmFocused] = useState(false);
+    const [registerEmailDisabled, setRegisterEmailDisabled] = useState(false);
+    const [registerEmailText, setRegisterEmailText] = useState("Continue");
+    const [registerOTPDisabled, setRegisterOTPDisabled] = useState(false);
+    const [registerOTPText, setRegisterOTPText] = useState("Verify OTP");
+    const [registerDisabled, setRegisterDisabled] = useState(false);
+    const [registerText, setRegisterText] = useState("Register");
 
     const [forgotStep, setForgotStep] = useState(1);
     const [forgotEmail, setForgotEmail] = useState('');
@@ -72,6 +83,12 @@ export default function HomeScreen() {
     const [forgotOTPFocused, setForgotOTPFocused] = useState(false);
     const [forgotNewPasswordFocused, setNewforgotPasswordFocused] = useState(false);
     const [forgotConfirmFocused, setforgotConfirmFocused] = useState(false);
+    const [forgotEmailDisabled, setForgotEmailDisabled] = useState(false);
+    const [forgotEmailText, setForgotEmailText] = useState("Continue");
+    const [forgotOTPDisabled, setForgotOTPDisabled] = useState(false);
+    const [forgotOTPText, setForgotOTPText] = useState("Verify OTP");
+    const [resetPasswordDisabled, setResetPasswordDisabled] = useState(false);
+    const [resetPasswordText, setResetPasswordText] = useState("Reset Password");
 
     const [changeUsernameStep, setChangeUsernameStep] = useState(1);
     const [changeUsernamePassword, setChangeUsernamePassword] = useState('');
@@ -141,6 +158,24 @@ export default function HomeScreen() {
     });
 
     const {
+        updateNavbar,
+        toggleDropdown,
+        closeDropdown,
+        openAccount,
+        mobileSignUp,
+    } = NavigationService({
+        dropdownVisible,
+        setDropdownVisible,
+        profileVisible,
+        setProfileVisible,
+        setLoginVisible,
+        username,
+        setUsername,
+        email,
+        setEmail,
+    });
+
+    const {
         checkPassword,
         loginUser,
         closeLoginOverlay,
@@ -171,6 +206,8 @@ export default function HomeScreen() {
         setLoginPopupVisible,
         setProfileVisible,
         updateNavbar,
+        setLoginDisabled,
+        setLoginText,
 
         // Register
         registerEmail,
@@ -186,6 +223,12 @@ export default function HomeScreen() {
         setRegisterUsername,
         setRegisterPassword,
         setRegisterConfirmPassword,
+        setRegisterEmailDisabled,
+        setRegisterEmailText,
+        setRegisterOTPDisabled,
+        setRegisterOTPText,
+        setRegisterDisabled,
+        setRegisterText,
 
         // Forgot
         forgotStep,
@@ -199,6 +242,12 @@ export default function HomeScreen() {
         setForgotOTP,
         setForgotNewPassword,
         setForgotConfirmPassword,
+        setForgotEmailDisabled,
+        setForgotEmailText,
+        setForgotOTPDisabled,
+        setForgotOTPText,
+        setResetPasswordDisabled,
+        setResetPasswordText,
 
         // Toast
         toastMessage,
@@ -210,24 +259,6 @@ export default function HomeScreen() {
     });
 
     const {
-        updateNavbar,
-        toggleDropdown,
-        closeDropdown,
-        openAccount,
-        mobileSignUp,
-    } = NavigationService({
-        dropdownVisible,
-        setDropdownVisible,
-        profileVisible,
-        setProfileVisible,
-        setLoginVisible,
-        username,
-        setUsername,
-        email,
-        setEmail,
-    });
-
-    const {
         closeProfile,
         openSettings,
         openChangeUsername,
@@ -236,7 +267,7 @@ export default function HomeScreen() {
         logout,
     } = ProfileService({
         setProfileVisible,
-        setSettingsVisible,
+        setSettingsVisible: ()=>navigation.navigate("Settings"),
         setChangeVisible,
         setChangeSection,
         setUsername,
@@ -318,7 +349,45 @@ export default function HomeScreen() {
         setToastColor,
     });
 
-    useEffect(() => {updateNavbar();}, []);
+    useEffect(() => {
+        updateNavbar();
+        // Account restore is intentionally performed once at bootstrap.
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, []);
+
+    useEffect(()=>{
+        const action =
+            route?.params?.dashboardAction;
+
+        if(!action){
+            return;
+        }
+
+        setDropdownVisible(false);
+        setProfileVisible(false);
+
+        if(action === "settings"){
+            navigation.navigate("Settings");
+        }
+
+        else if(
+            action === "username" ||
+            action === "email" ||
+            action === "password"
+        ){
+            setChangeSection(action);
+            setChangeVisible(true);
+        }
+
+        navigation.setParams({
+            dashboardAction: undefined,
+            dashboardActionId: undefined,
+        });
+    }, [
+        navigation,
+        route?.params?.dashboardAction,
+        route?.params?.dashboardActionId,
+    ]);
 
     console.log("HomeScreen rendered");
 
@@ -354,7 +423,13 @@ export default function HomeScreen() {
                                 <Text style={styles.profileUsername}>{username}</Text>
                                 <Text style={styles.profileEmail}>{email}</Text>
                                 <View style={styles.divider}/>
-                                <TouchableOpacity style={styles.profileButton} onPress={() => {}}>
+                                <TouchableOpacity
+                                    style={styles.profileButton}
+                                    onPress={() => {
+                                        setProfileVisible(false);
+                                        navigation.navigate("Dashboard");
+                                    }}
+                                >
                                     <Text style={styles.profileButtonText}>Dashboard</Text>
                                 </TouchableOpacity>
                                 <TouchableOpacity style={styles.profileButton} onPress={() => openSettings()}>
@@ -422,105 +497,6 @@ export default function HomeScreen() {
                             <Text style={styles.exploreButtonText}>Explore More</Text>
                         </TouchableOpacity>
                     </LinearGradient>
-                    {/*==========SETTINGS==========*/}
-                    {settingsVisible && (
-                        <View style={settingsStyles.settingsOverlay}>
-                            <View style={settingsStyles.settingsPopup}>
-                                <ScrollView
-                                    style={settingsStyles.settingsScroll}
-                                    showsVerticalScrollIndicator={false}
-                                >
-                                    <TouchableOpacity
-                                        style={styles.popupCloseButton}
-                                        onPress={() => setSettingsVisible(false)}
-                                    >
-                                        <Text style={styles.popupCloseText}>×</Text>
-                                    </TouchableOpacity>
-                                    <Text style={settingsStyles.settingsTitle}>Settings</Text>
-                                    {/*Appearance*/}
-                                    <View style={settingsStyles.settingsSection}>
-                                        <Text style={settingsStyles.sectionTitle}>Appearance</Text>
-                                        <TouchableOpacity style={settingsStyles.settingButton} onPress={() => {}}>
-                                            <Text style={settingsStyles.settingButtonText}>System</Text>
-                                        </TouchableOpacity>
-                                        <TouchableOpacity style={settingsStyles.settingButton} onPress={() => {}}>
-                                            <Text style={settingsStyles.settingButtonText}>Light</Text>
-                                        </TouchableOpacity>
-                                        <TouchableOpacity style={settingsStyles.settingButton} onPress={() => {}}>
-                                            <Text style={settingsStyles.settingButtonText}>Dark</Text>
-                                        </TouchableOpacity>
-                                    </View>
-                                    <View style={styles.divider} />
-                                    {/*Website Monitoring*/}
-                                    <View style={settingsStyles.settingsSection}>
-                                        <Text style={settingsStyles.sectionTitle}>Website Monitoring</Text>
-                                        <View style={settingsStyles.monitorList}>
-                                            <TouchableOpacity style={settingsStyles.monitorItem}>
-                                                <Image source={require("../assets/icons/youtube.png")} style={settingsStyles.monitorIcon}/>
-                                                <Text style={settingsStyles.monitorText}>YouTube</Text>
-                                                <Switch
-                                                value={false}
-                                                trackColor={{false:"#d1d5db",true:"#2563eb"}}
-                                                thumbColor="#ffffff"
-                                                />
-                                            </TouchableOpacity>
-                                            <TouchableOpacity style={settingsStyles.monitorItem}>
-                                                <Image source={require("../assets/icons/instagram.png")} style={settingsStyles.monitorIcon}/>
-                                                <Text style={settingsStyles.monitorText}>Instagram</Text>
-                                                <Switch
-                                                value={false}
-                                                trackColor={{false:"#d1d5db",true:"#2563eb"}}
-                                                thumbColor="#ffffff"
-                                                />
-                                            </TouchableOpacity>
-                                            <TouchableOpacity style={settingsStyles.monitorItem}>
-                                                <Image source={require("../assets/icons/tiktok.png")} style={settingsStyles.monitorIcon}/>
-                                                <Text style={settingsStyles.monitorText}>TikTok</Text>
-                                                <Switch
-                                                value={false}
-                                                trackColor={{false:"#d1d5db",true:"#2563eb"}}
-                                                thumbColor="#ffffff"
-                                                />
-                                            </TouchableOpacity>
-                                            <TouchableOpacity style={settingsStyles.monitorItem}>
-                                                <Image source={require("../assets/icons/facebook.png")} style={settingsStyles.monitorIcon}/>
-                                                <Text style={settingsStyles.monitorText}>Facebook</Text>
-                                                <Switch
-                                                value={false}
-                                                trackColor={{false:"#d1d5db",true:"#2563eb"}}
-                                                thumbColor="#ffffff"
-                                                />
-                                            </TouchableOpacity>
-                                            <TouchableOpacity style={settingsStyles.monitorItem}>
-                                                <Image source={require("../assets/icons/x.png")} style={settingsStyles.monitorIcon}/>
-                                                <Text style={settingsStyles.monitorText}>X</Text>
-                                                <Switch
-                                                value={false}
-                                                trackColor={{false:"#d1d5db",true:"#2563eb"}}
-                                                thumbColor="#ffffff"
-                                                />
-                                            </TouchableOpacity>
-                                            <TouchableOpacity style={settingsStyles.monitorItem}>
-                                                <Image source={require("../assets/icons/threads.png")} style={settingsStyles.monitorIcon}/>
-                                                <Text style={settingsStyles.monitorText}>Threads</Text>
-                                                <Switch
-                                                value={false}
-                                                trackColor={{false:"#d1d5db",true:"#2563eb"}}
-                                                thumbColor="#ffffff"
-                                                />
-                                            </TouchableOpacity>
-                                        </View>
-                                    </View>
-                                    <View style={styles.divider} />
-                                    {/*Personalize*/}
-                                    <View style={settingsStyles.settingsSection}>
-                                        <Text style={settingsStyles.sectionTitle}>Personalize</Text>
-                                        <Text style={settingsStyles.comingSoon}>Coming Soon</Text>
-                                    </View>
-                                </ScrollView>
-                            </View>
-                        </View>
-                    )}
                     {/*==========CHANGE==========*/}
                     {changeVisible && (
                         <View style={styles.changeOverlay}>
@@ -601,7 +577,7 @@ export default function HomeScreen() {
                                                     style={[
                                                         styles.primaryButton,
                                                         changeUsernameSaveDisabled &&
-                                                        style.loadingButton,
+                                                        styles.loadingButton,
                                                     ]}
                                                     disabled={changeUsernameSaveDisabled}
                                                     onPress={() => saveUsername()}
@@ -658,7 +634,7 @@ export default function HomeScreen() {
                                                     style={[
                                                         styles.primaryButton,
                                                         changeEmailContinueDisabled &&
-                                                        style.loadingButton,
+                                                        styles.loadingButton,
                                                     ]}
                                                     disabled={changeEmailContinueDisabled}
                                                     onPress={() => continueChangeEmail()}
@@ -695,7 +671,7 @@ export default function HomeScreen() {
                                                     style={[
                                                         styles.primaryButton,
                                                         changeEmailSendDisabled &&
-                                                        style.loadingButton,
+                                                        styles.loadingButton,
                                                     ]}
                                                     disabled={changeEmailSendDisabled}
                                                     onPress={() => sendChangeEmailOTP()}
@@ -734,7 +710,7 @@ export default function HomeScreen() {
                                                     style={[
                                                         styles.primaryButton,
                                                         changeEmailVerifyDisabled &&
-                                                        style.loadingButton,
+                                                        styles.loadingButton,
                                                     ]}
                                                     disabled={changeEmailVerifyDisabled}
                                                     onPress={() => verifyChangeEmailOTP()}
@@ -792,7 +768,7 @@ export default function HomeScreen() {
                                                     style={[
                                                         styles.primaryButton,
                                                         changePasswordContinueDisabled &&
-                                                        style.loadingButton,
+                                                        styles.loadingButton,
                                                     ]}
                                                     disabled={changePasswordContinueDisabled}
                                                     onPress={() => continueChangePassword()}
@@ -875,7 +851,7 @@ export default function HomeScreen() {
                                                     style={[
                                                         styles.primaryButton,
                                                         changePasswordSaveDisabled &&
-                                                        style.loadingButton,
+                                                        styles.loadingButton,
                                                     ]}
                                                     disabled={changePasswordSaveDisabled}
                                                     onPress={() => savePassword()}
@@ -946,11 +922,20 @@ export default function HomeScreen() {
                                         </TouchableOpacity>
                                     </View>
                                     <TouchableOpacity
-                                        style={styles.primaryButton}
+                                        style={[
+                                            styles.primaryButton,
+                                            loginDisabled && styles.loadingButton,
+                                        ]}
+                                        disabled={loginDisabled}
                                         onPress={() => loginUser()}
                                         activeOpacity={0.9}
                                     >
-                                        <Text style={styles.primaryButtonText}>Login</Text>
+                                        <View style={styles.loadingContent}>
+                                            <Text style={styles.primaryButtonText}>{loginText}</Text>
+                                            {loginDisabled && (
+                                                <ActivityIndicator size="small" color="#ffffff" style={styles.loadingSpinner}/>
+                                            )}
+                                        </View>
                                     </TouchableOpacity>
                                     <TouchableOpacity onPress={() => openForgot()}>
                                         <Text style={styles.popupLink}>Forgot Password?</Text>
@@ -984,11 +969,20 @@ export default function HomeScreen() {
                                                 onChangeText={setRegisterEmail}
                                             />
                                             <TouchableOpacity
-                                                style={styles.primaryButton}
+                                                style={[
+                                                    styles.primaryButton,
+                                                    registerEmailDisabled && styles.loadingButton,
+                                                ]}
+                                                disabled={registerEmailDisabled}
                                                 onPress={() => continueEmail()}
                                                 activeOpacity={0.9}
                                             >
-                                                <Text style={styles.primaryButtonText}>Continue</Text>
+                                                <View style={styles.loadingContent}>
+                                                    <Text style={styles.primaryButtonText}>{registerEmailText}</Text>
+                                                    {registerEmailDisabled && (
+                                                        <ActivityIndicator size="small" color="#ffffff" style={styles.loadingSpinner}/>
+                                                    )}
+                                                </View>
                                             </TouchableOpacity>
                                         </View>
                                     )}
@@ -1009,11 +1003,20 @@ export default function HomeScreen() {
                                                 maxLength={6}
                                             />
                                             <TouchableOpacity
-                                                style={styles.primaryButton}
+                                                style={[
+                                                    styles.primaryButton,
+                                                    registerOTPDisabled && styles.loadingButton,
+                                                ]}
+                                                disabled={registerOTPDisabled}
                                                 onPress={() => verifyOTP()}
                                                 activeOpacity={0.9}
                                             >
-                                                <Text style={styles.primaryButtonText}>Verify OTP</Text>
+                                                <View style={styles.loadingContent}>
+                                                    <Text style={styles.primaryButtonText}>{registerOTPText}</Text>
+                                                    {registerOTPDisabled && (
+                                                        <ActivityIndicator size="small" color="#ffffff" style={styles.loadingSpinner}/>
+                                                    )}
+                                                </View>
                                             </TouchableOpacity>
                                         </View>
                                     )}
@@ -1099,11 +1102,20 @@ export default function HomeScreen() {
                                             </View>
                                             <Text style={styles.warningText}>{passwordWarning}</Text>
                                             <TouchableOpacity
-                                                style={styles.primaryButton}
+                                                style={[
+                                                    styles.primaryButton,
+                                                    registerDisabled && styles.loadingButton,
+                                                ]}
+                                                disabled={registerDisabled}
                                                 onPress={() => registerUser()}
                                                 activeOpacity={0.9}
                                             >
-                                                <Text style={styles.primaryButtonText}>Register</Text>
+                                                <View style={styles.loadingContent}>
+                                                    <Text style={styles.primaryButtonText}>{registerText}</Text>
+                                                    {registerDisabled && (
+                                                        <ActivityIndicator size="small" color="#ffffff" style={styles.loadingSpinner}/>
+                                                    )}
+                                                </View>
                                             </TouchableOpacity>
                                         </View>
                                     )}
@@ -1130,11 +1142,20 @@ export default function HomeScreen() {
                                                 onChangeText={setForgotEmail}
                                             />
                                             <TouchableOpacity
-                                                style={styles.primaryButton}
+                                                style={[
+                                                    styles.primaryButton,
+                                                    forgotEmailDisabled && styles.loadingButton,
+                                                ]}
+                                                disabled={forgotEmailDisabled}
                                                 onPress={() => forgotContinue()}
                                                 activeOpacity={0.9}
                                             >
-                                                <Text style={styles.primaryButtonText}>Continue</Text>
+                                                <View style={styles.loadingContent}>
+                                                    <Text style={styles.primaryButtonText}>{forgotEmailText}</Text>
+                                                    {forgotEmailDisabled && (
+                                                        <ActivityIndicator size="small" color="#ffffff" style={styles.loadingSpinner}/>
+                                                    )}
+                                                </View>
                                             </TouchableOpacity>
                                             <TouchableOpacity onPress={() => backToLogin()}>
                                                 <Text style={styles.popupLink}>Back to Login</Text>
@@ -1158,11 +1179,20 @@ export default function HomeScreen() {
                                                 maxLength={6}
                                             />
                                             <TouchableOpacity
-                                                style={styles.primaryButton}
+                                                style={[
+                                                    styles.primaryButton,
+                                                    forgotOTPDisabled && styles.loadingButton,
+                                                ]}
+                                                disabled={forgotOTPDisabled}
                                                 onPress={() => verifyResetOTP()}
                                                 activeOpacity={0.9}    
                                             >
-                                                <Text style={styles.primaryButtonText}>Verify OTP</Text>
+                                                <View style={styles.loadingContent}>
+                                                    <Text style={styles.primaryButtonText}>{forgotOTPText}</Text>
+                                                    {forgotOTPDisabled && (
+                                                        <ActivityIndicator size="small" color="#ffffff" style={styles.loadingSpinner}/>
+                                                    )}
+                                                </View>
                                             </TouchableOpacity>
                                         </View>
                                     )}
@@ -1219,11 +1249,20 @@ export default function HomeScreen() {
                                                 </TouchableOpacity>
                                             </View>
                                             <TouchableOpacity
-                                                style={styles.primaryButton}
+                                                style={[
+                                                    styles.primaryButton,
+                                                    resetPasswordDisabled && styles.loadingButton,
+                                                ]}
+                                                disabled={resetPasswordDisabled}
                                                 onPress={() => resetPassword()}
                                                 activeOpacity={0.9}
                                             >
-                                                <Text style={styles.primaryButtonText}>Reset Password</Text>
+                                                <View style={styles.loadingContent}>
+                                                    <Text style={styles.primaryButtonText}>{resetPasswordText}</Text>
+                                                    {resetPasswordDisabled && (
+                                                        <ActivityIndicator size="small" color="#ffffff" style={styles.loadingSpinner}/>
+                                                    )}
+                                                </View>
                                             </TouchableOpacity>
                                         </View>
                                     )}

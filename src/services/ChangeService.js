@@ -1,6 +1,9 @@
 //====ELEMENT====//
-import AsyncStorage from "@react-native-async-storage/async-storage";
 import GlobalService from "./GlobalService";
+import {
+    getStoredUser,
+    saveStoredUser,
+} from "./StoredUserService";
 
 
 
@@ -77,6 +80,18 @@ export default function ChangeService({
         toastColor,
         setToastColor,
     });
+
+    async function requireCurrentUser(){
+        const user = await getStoredUser();
+
+        if(!user){
+            showError(
+                "Silakan login kembali."
+            );
+        }
+
+        return user;
+    }
 
     //HELPER//
     function openChangeSection(){
@@ -167,11 +182,11 @@ export default function ChangeService({
             return;
         }
 
-        const user = JSON.parse(
-            await AsyncStorage.getItem(
-                "synapauseUser"
-            )
-        );
+        const user = await requireCurrentUser();
+
+        if(!user){
+            return;
+        }
 
         setLoading(
             setChangeUsernameContinueDisabled,
@@ -226,11 +241,11 @@ export default function ChangeService({
     }
 
     async function saveUsername(){
-        const user = JSON.parse(
-            await AsyncStorage.getItem(
-                "synapauseUser"
-            )
-        );
+        const user = await requireCurrentUser();
+
+        if(!user){
+            return;
+        }
 
         const newUsername =
             changeUsernameInput.trim();
@@ -271,10 +286,7 @@ export default function ChangeService({
                 user.username =
                     result.username;
 
-                await AsyncStorage.setItem(
-                    "synapauseUser",
-                    JSON.stringify(user)
-                );
+                await saveStoredUser(user);
 
                 if(updateNavbar){
                     await updateNavbar();
@@ -334,11 +346,11 @@ export default function ChangeService({
             return;
         }
 
-        const user = JSON.parse(
-            await AsyncStorage.getItem(
-                "synapauseUser"
-            )
-        );
+        const user = await requireCurrentUser();
+
+        if(!user){
+            return;
+        }
 
         setLoading(
             setChangeEmailContinueDisabled,
@@ -482,11 +494,11 @@ export default function ChangeService({
             return;
         }
 
-        const user = JSON.parse(
-            await AsyncStorage.getItem(
-                "synapauseUser"
-            )
-        );
+        const user = await requireCurrentUser();
+
+        if(!user){
+            return;
+        }
 
         setLoading(
             setChangeEmailVerifyDisabled,
@@ -549,10 +561,7 @@ export default function ChangeService({
                 user.email =
                     changeResult.email;
 
-                await AsyncStorage.setItem(
-                    "synapauseUser",
-                    JSON.stringify(user)
-                );
+                await saveStoredUser(user);
 
                 if(updateNavbar){
                     await updateNavbar();
@@ -612,11 +621,11 @@ export default function ChangeService({
             return;
         }
 
-        const user = JSON.parse(
-            await AsyncStorage.getItem(
-                "synapauseUser"
-            )
-        );
+        const user = await requireCurrentUser();
+
+        if(!user){
+            return;
+        }
 
         setLoading(
             setChangePasswordContinueDisabled,
@@ -719,11 +728,11 @@ export default function ChangeService({
             return;
         }
 
-        const user = JSON.parse(
-            await AsyncStorage.getItem(
-                "synapauseUser"
-            )
-        );
+        const user = await requireCurrentUser();
+
+        if(!user){
+            return;
+        }
 
         setLoading(
             setChangePasswordSaveDisabled,

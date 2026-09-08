@@ -1,7 +1,7 @@
 import { StyleSheet, Dimensions, StatusBar } from "react-native";
 
 const { width, height } = Dimensions.get("window");
-const COLORS = {
+const DEFAULT_COLORS = {
     bg: "#f5f7fb",
     surface: "#ffffff",
     surface2: "#f8fafc",
@@ -16,13 +16,21 @@ const COLORS = {
     primary: "#2563eb",
 };
 
-export default StyleSheet.create({
+export function createGlobalStyles(themeColors = DEFAULT_COLORS){
+    const COLORS = {
+        ...DEFAULT_COLORS,
+        ...themeColors,
+        bg: themeColors.background || DEFAULT_COLORS.bg,
+        primary: themeColors.accent || DEFAULT_COLORS.primary,
+    };
+
+    return StyleSheet.create({
     /* ======================================================
                             GLOBAL
     ====================================================== */
     container: {
         flex: 1,
-        backgroundColor: "red",
+        backgroundColor: COLORS.background,
     },
 
     keyboardContainer: {
@@ -31,7 +39,7 @@ export default StyleSheet.create({
 
     scrollContainer: {
         flexGrow: 1,
-        backgroundColor:"green",
+        backgroundColor:COLORS.background,
     },
 
     page: {
@@ -618,4 +626,7 @@ export default StyleSheet.create({
         fontSize: 16,
         fontWeight: "600",
     }
-});
+    });
+}
+
+export default createGlobalStyles();

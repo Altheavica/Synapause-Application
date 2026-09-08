@@ -1,89 +1,11 @@
-import React, {useEffect, useState,} from "react";
+import React, {useEffect} from "react";
 import {AppState,} from "react-native";
 import AppNavigator from './src/navigation/AppNavigator';
-import BackgroundService from "./src/services/BackgroundService";
 import DetectorService from "./src/services/DetectorService";
-import QuizScreen from "./src/screens/QuizScreen";
+import {ThemeProvider} from "./src/theme/ThemeContext";
 
-export default function App() {
-  const [showQuiz, setShowQuiz] = useState(false);
-
+function AppContent() {
   useEffect(() => {
-    async function testOverlayPermission(){
-
-        const granted =
-            await DetectorService
-                .hasOverlayPermission();
-
-
-        console.log(
-            "OVERLAY PERMISSION:",
-            granted
-        );
-
-
-        if(!granted){
-
-            console.log(
-                "REQUESTING OVERLAY PERMISSION"
-            );
-
-
-            await DetectorService
-                .requestOverlayPermission();
-        }
-    }
-
-    testOverlayPermission();
-
-      DetectorService.setForegroundAppCallback(
-          BackgroundService.onForegroundAppChanged
-      );
-
-
-      DetectorService.setTimerChangedCallback(
-          BackgroundService.syncTimer
-      );
-
-
-      DetectorService.setQuizRequiredCallback(
-          ()=>{
-              BackgroundService.requireQuiz();
-
-              setShowQuiz(
-                  true
-              );
-          }
-      );
-
-
-      BackgroundService.setMonitorCallback(
-          DetectorService.start
-      );
-
-
-      BackgroundService.initialize();
-
-
-      async function checkPendingQuiz(){
-
-          const pending =
-              await DetectorService
-                  .consumePendingShowQuiz();
-
-
-          if(pending){
-
-              setShowQuiz(
-                  true
-              );
-          }
-      }
-
-
-      checkPendingQuiz();
-
-
       const subscription =
           AppState.addEventListener(
               "change",
@@ -93,7 +15,8 @@ export default function App() {
                       state ===
                       "active"
                   ){
-                      checkPendingQuiz();
+                      DetectorService
+                          .resumePendingStart();
                   }
               }
           );
@@ -102,42 +25,19 @@ export default function App() {
       return () => {
 
           subscription.remove();
-
-          DetectorService.stop();
       };
 
   }, []);
 
-  if(showQuiz){
-
-      return(
-          <QuizScreen
-              savedState={
-                  BackgroundService
-                      .getQuizState()
-              }
-
-              onQuizFinished={
-                  async ()=>{
-
-                      BackgroundService
-                          .clearQuizState();
-
-
-                      await DetectorService
-                          .restartTimer();
-
-
-                      setShowQuiz(
-                          false
-                      );
-                  }
-              }
-          />
-      );
-  }
-
   return(
       <AppNavigator />
+  );
+}
+
+export default function App(){
+  return(
+    <ThemeProvider>
+      <AppContent />
+    </ThemeProvider>
   );
 }

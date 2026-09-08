@@ -1,4 +1,5 @@
 import AsyncStorage from "@react-native-async-storage/async-storage";
+import {getStoredUser} from "./StoredUserService";
 
 
 
@@ -34,9 +35,7 @@ function hasActiveQuiz(){
 
 async function isLoggedIn(){
     try{
-        const user = await AsyncStorage.getItem(
-            "synapauseUser"
-        );
+        const user = await getStoredUser();
 
         return user !== null;
     }
