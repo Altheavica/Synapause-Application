@@ -39,7 +39,7 @@
             android:id="@+id/haloLighter"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:text="Sebelum lanjut, lu bakal ngerjain quiz singkat buat bantu otak lu balik fokus."
+            android:text="Before continuing, complete a short quiz to help your mind refocus."
             android:gravity="center"
             android:lineSpacingExtra="3dp"
             android:textSize="16sp"
@@ -61,7 +61,7 @@
             android:id="@+id/haloMessage"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:text="Sebelum lanjut, lu bakal ngerjain quiz singkat buat bantu otak lu balik fokus."
+            android:text="Before continuing, complete a short quiz to help your mind refocus."
             android:gravity="center"
             android:lineSpacingExtra="2dp"
             android:textColor="#6B7280"
@@ -76,6 +76,6 @@
             android:id="@+id/continueButton"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:text="Lanjut ke Quiz"/>
+            android:text="Continue to Quiz"/>
     </LinearLayout>
 </FrameLayout>

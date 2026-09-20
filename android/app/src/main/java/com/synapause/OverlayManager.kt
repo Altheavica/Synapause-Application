@@ -175,7 +175,7 @@ internal class OverlayManager(
         root.findViewById<TextView>(R.id.haloAuthor).text = ""
         root.findViewById<TextView>(R.id.haloMessage).text = snapshot.haloMessage
         root.findViewById<Button>(R.id.continueButton).apply {
-            text = "Lanjut ke Quiz"
+            text = "Continue to Quiz"
             setOnClickListener {
                 onContinue()
             }
@@ -207,13 +207,13 @@ internal class OverlayManager(
         when (snapshot.phase) {
             QuizSession.Phase.FINISHING -> {
                 currentRenderIdentity = "${snapshot.lifecycleId}:FINISHING"
-                renderTerminal(root, "Menyelesaikan sesi...")
+                renderTerminal(root, "Finishing session...")
                 return attachResult
             }
 
             QuizSession.Phase.COMPLETED -> {
                 currentRenderIdentity = "${snapshot.lifecycleId}:COMPLETED"
-                renderTerminal(root, "Quiz selesai.")
+                renderTerminal(root, "Quiz complete.")
                 return attachResult
             }
 
@@ -282,7 +282,7 @@ internal class OverlayManager(
         root.findViewById<TextView>(R.id.quizTimer).text = ""
         root.findViewById<TextView>(R.id.questionCount).text = "Quiz Error"
         root.findViewById<TextView>(R.id.questionText).text =
-            snapshot.errorMessage ?: "Quiz gagal dimuat."
+            snapshot.errorMessage ?: "Failed to load the quiz."
         root.findViewById<TextView>(R.id.stroopWord).visibility = View.GONE
         root.findViewById<ImageView>(R.id.questionImage).visibility = View.GONE
         root.findViewById<TextView>(R.id.feedbackTitle).visibility = View.GONE
@@ -294,7 +294,7 @@ internal class OverlayManager(
 
         if (snapshot.canRetry) {
             val retryButton = Button(context).apply {
-                text = "Coba lagi"
+                text = "Try Again"
                 isAllCaps = false
                 setTextColor(Color.rgb(17, 24, 39))
                 background = answerBackground(AnswerStyle.NORMAL)
@@ -649,7 +649,7 @@ internal class OverlayManager(
             },
             onFailure = {
                 imageView.contentDescription =
-                    "Gambar soal gagal dimuat. Ketuk untuk mencoba lagi."
+                    "Failed to load the question image. Tap to try again."
                 imageView.isClickable = true
                 imageView.setOnClickListener {
                     loadQuestionImage(
@@ -682,7 +682,7 @@ internal class OverlayManager(
             },
             onFailure = {
                 imageButton.contentDescription =
-                    "$answerLabel. Gambar gagal dimuat. Ketuk untuk mencoba lagi."
+                    "$answerLabel. Failed to load the image. Tap to try again."
                 imageButton.setOnClickListener {
                     loadVisualAnswerImage(
                         imageUrl,

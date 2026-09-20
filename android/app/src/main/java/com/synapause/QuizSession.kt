@@ -19,47 +19,47 @@ internal object QuizSession {
     internal const val SNAPSHOT_VERSION = 2
 
     private val GREETINGS = listOf(
-        "HALOW",
-        "HAIII",
-        "HEI HEI",
-        "ALOO",
-        "DEY"
+        "HELLO",
+        "HIII",
+        "HEY HEY",
+        "HI THERE",
+        "HEY"
     )
 
     private val LIGHTER = listOf(
-        "Konten di layar ini tak akan pernah habis, tapi waktumu hari ini ada batasnya. Sudah berapa jam yang terlewat tanpa kamu sadari?",
-        "Kamu terlalu berharga kalau cuma jadi penonton keberhasilan orang lain setiap hari. Kapan giliran kamu yang melangkah dan mewujudkan impianmu sendiri?",
-        "Rencananya cuma mau sebentar, kan? Tanpa sadar, jempolmu terus mengusap layar, sementara hal-hal penting di hidupmu sedang menunggumu...",
-        "Coba tanyakan ke dirimu sendiri: apakah kamu yang sedang memegang ponsel ini, atau justru ponsel ini yang sedang mengendalikan hari-harimu? Kalau kata Einstein sih, Life is like riding a bicycle. To keep your balance, you must keep moving.",
-        "Pikiranmu sedang lelah karena terlalu banyak informasi yang masuk. Matikan layarnya sejenak, biarkan otakmu bernapas dan istirahat yang sebenarnya.",
-        "Kira-kira, dirimu di masa depan nanti akan berterima kasih atau malah menyesal saat mengingat apa yang kamu lakukan dengan ponselmu hari ini?",
-        "Ada orang-orang nyata di sekitarmu yang rindu mengobrol dan menghabiskan waktu bersamamu secara utuh, bukan cuma ragamu yang ada di dekat mereka.",
-        "Menutup aplikasi ini memang butuh niat kuat. Tapi aku percaya, kamu punya kendali penuh atas dirimu sendiri. Kata Plato, The beginning is the most important part of the work.",
-        "Hal terburuk dari terlalu lama scrolling adalah menyadari bahwa hari sudah malam, sementara tak ada satu pun hal berarti yang selesai kamu kerjakan.",
-        "Dunia nyata dan potensi dirimu sudah menanti di luar layar ini. Yuk, kunci ponselmu sekarang dan mulai lakukan satu hal kecil yang bermakna!",
-        "Setiap kali kamu mengabaikan tujuanmu demi scrolling, ada versi dirimu di masa depan yang pelan-pelan sedang kamu kecewakan. Kamu yakin mau terus menyakiti potensinya? kalau kata Nelson Mandela, It always seems impossible until it's done.",
-        "Di dekatmu, ada orang yang merindukan perhatian utuhmu. Jangan sampai suatu hari kamu sadar, kamu lebih sering menatap layar dingin ini daripada menatap mata orang-orang yang mencintaimu.",
-        "Jujur, setelah berjam-jam mengusap layar, apakah hatimu merasa lebih tenang dan bahagia? Atau justru merasa makin kosong dan kesepian?",
-        "Hari ini hanya terjadi satu kali dalam hidupmu. Sayang sekali kalau momen berharga ini menguap begitu saja hanya untuk menonton kehidupan orang lain. Kata guru besar Mahatma Ghandi, The future depends on what you do today.",
-        "Kamu cuma doomscrolling seharian? pikirkan masa depanmu.. Kalau kata uncle Ben, With great power, comes great responsibility."
+        "Content on this screen never ends, but your time today does. How many hours have slipped by without you noticing?",
+        "You are worth more than spending every day watching other people succeed. When will you take your own step toward your dreams?",
+        "You only meant to stay for a moment, right? Without noticing, you kept scrolling while the important things in your life waited for you...",
+        "Ask yourself: are you holding this phone, or is it controlling your days? As Einstein said, Life is like riding a bicycle. To keep your balance, you must keep moving.",
+        "Your mind is tired from taking in too much information. Put the screen down for a moment and let your brain breathe and truly rest.",
+        "Will your future self thank you, or regret how you spent your time on your phone today?",
+        "Real people around you miss talking and spending meaningful time with your full attention, not just having you physically nearby.",
+        "Closing this app takes real intention. I believe you are fully in control of yourself. As Plato said, The beginning is the most important part of the work.",
+        "The worst part of scrolling too long is realizing the day has ended without finishing anything meaningful.",
+        "The real world and your potential are waiting beyond this screen. Lock your phone now and do one small, meaningful thing!",
+        "Every time you ignore your goals to keep scrolling, you disappoint your future self a little more. Are you sure you want to keep holding back your potential? As Nelson Mandela said, It always seems impossible until it's done.",
+        "Someone nearby misses your full attention. Do not wait until you realize you have spent more time looking at this cold screen than into the eyes of the people who love you.",
+        "Honestly, after hours of scrolling, do you feel calmer and happier, or emptier and more alone?",
+        "You only get today once. Do not let this precious moment disappear while you watch someone else's life. As Mahatma Gandhi said, The future depends on what you do today.",
+        "Have you been doomscrolling all day? Think about your future. As Uncle Ben said, With great power comes great responsibility."
     )
 
     private val PERSUASIONS = listOf(
-        "Ayo istirahat sejenak 30 detik bersama.",
-        "Waktunya merenggangkan badan dan melihat sekeliling.",
-        "Yuk, beralih dari sekadar menonton jadi berkarya!",
-        "Siap untuk kembali mengejar tujuan nyatamu?",
-        "Ayo beri mata kita kesempatan untuk bernapas sejenak.",
-        "Yuk, ikuti kuis otak singkat ini sebelum lanjut lagi.",
-        "Bagaimana kalau kita coba tantangan fokus singkat sekarang?",
-        "Ayo taruh layarnya sebentar.",
-        "Waktunya bikin hari ini bermakna. Mulai yuk?",
-        "Yuk, melangkah keluar dan nikmati dunia nyata.",
-        "Siap untuk menyegarkan pikiran dan mulai lagi dari awal?",
-        "Ayo tarik napas dalam-dalam bersama.",
-        "Waktunya menyelesaikan tugas-tugas penting itu!",
-        "Yuk, isi ulang energi pikiran kita dengan jeda singkat.",
-        "Siap menguji kemampuan?"
+        "Let's take a 30-second break together.",
+        "Time to stretch and look around.",
+        "Let's stop watching and start creating!",
+        "Ready to get back to your real goals?",
+        "Give your eyes a moment to rest.",
+        "Take this quick brain quiz before continuing.",
+        "How about a quick focus challenge?",
+        "Put the screen down for a moment.",
+        "Time to make today meaningful. Ready to begin?",
+        "Step outside and enjoy the real world.",
+        "Ready to refresh your mind and start again?",
+        "Let's take a deep breath together.",
+        "Time to finish those important tasks!",
+        "Recharge your mind with a short break.",
+        "Ready to test your skills?"
     )
 
     enum class Phase {
